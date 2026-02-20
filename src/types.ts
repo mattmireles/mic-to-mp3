@@ -1,5 +1,12 @@
 /**
- * Public types for web-voice-recorder-to-mp3.
+ * Public TypeScript interfaces for web-voice-recorder-to-mp3.
+ *
+ * These types define the contract between the library and its consumers.
+ * They are re-exported from `./index.ts` as the package's public API surface.
+ *
+ * Used by:
+ * - `useVoiceRecorder()` in `./use-voice-recorder.ts` — implements these interfaces
+ * - External consumers — for type-safe usage of the hook
  *
  * @module web-voice-recorder-to-mp3/types
  */

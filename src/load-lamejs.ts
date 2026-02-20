@@ -9,14 +9,31 @@
  * the exported module shape (`named`, `default`, or `module.exports`) into a
  * stable encoder API.
  *
+ * Called by:
+ * - `./transcode.worker.ts` — Web Worker encoding path
+ * - `./encode-main-thread.ts` — main-thread fallback encoding path
+ *
  * @module web-voice-recorder-to-mp3/load-lamejs
  */
 
+/**
+ * Shape of a lamejs Mp3Encoder instance.
+ *
+ * Used internally by both encoding paths to type-check the encoder object
+ * returned from `loadLameJs()`.
+ */
 interface LameMp3Encoder {
   encodeBuffer(left: Int16Array): Int8Array;
   flush(): Int8Array;
 }
 
+/**
+ * Normalized module shape for the lamejs library.
+ *
+ * Different bundlers expose lamejs differently (named export, default export,
+ * or CJS `module.exports`). `loadLameJs()` resolves whichever shape is present
+ * into this stable interface.
+ */
 export interface LameJsModule {
   Mp3Encoder: new (
     channels: number,
@@ -40,6 +57,10 @@ const LAMEJS_GLOBAL_SHIMS = [
   "BitStream",
 ] as const;
 
+/**
+ * Pre-create the global bindings that lamejs's CJS source assigns to without declaring.
+ * Must be called before `import("lamejs")` to prevent `ReferenceError` in strict mode.
+ */
 function installLameJsGlobalShims() {
   const globalScope = globalThis as Record<string, unknown>;
   for (const key of LAMEJS_GLOBAL_SHIMS) {
@@ -50,7 +71,13 @@ function installLameJsGlobalShims() {
 }
 
 /**
- * Load lamejs and normalize its export shape across bundlers.
+ * Dynamically import lamejs and normalize its export shape across bundlers.
+ *
+ * Tries three export shapes in order: named exports, default export, and
+ * CJS `module.exports`. Returns the first one that contains `Mp3Encoder`.
+ *
+ * @returns Normalized LameJsModule with an `Mp3Encoder` constructor
+ * @throws {Error} If no valid export shape is found ("Failed to load MP3 encoder.")
  */
 export async function loadLameJs(): Promise<LameJsModule> {
   installLameJsGlobalShims();

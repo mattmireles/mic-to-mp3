@@ -1,9 +1,20 @@
 /**
  * Worker-based MP3 encoder with automatic main-thread fallback.
  *
- * Attempts to encode via Web Worker (off main thread). If the worker
- * can't be created or fails at runtime, falls back to main-thread
- * encoding transparently.
+ * Attempts to encode PCM audio to MP3 via a Web Worker (off main thread).
+ * If the worker can't be created (CSP, bundler issues) or fails at runtime,
+ * falls back to `encodeOnMainThread()` from `./encode-main-thread.ts` transparently.
+ *
+ * Called by:
+ * - `processRecording()` in `./use-voice-recorder.ts` after PCM decoding completes
+ *
+ * Calls:
+ * - `./transcode.worker.ts` — spawned as a Web Worker for off-thread encoding
+ * - `encodeOnMainThread()` from `./encode-main-thread.ts` — fallback path
+ *
+ * Worker message protocol:
+ * - Out: `{ pcmData, sampleRate, targetRate, bitrate }` (Float32Array transferred)
+ * - In:  `{ mp3Data: Uint8Array }` on success, `{ error: string }` on failure
  *
  * @module web-voice-recorder-to-mp3/encode-worker
  */
@@ -16,6 +27,12 @@ import { encodeOnMainThread } from "./encode-main-thread";
  * Tries Web Worker first for non-blocking encoding, automatically
  * falls back to main-thread encoding if the worker can't be created
  * or errors during encoding.
+ *
+ * @param pcmData - Mono Float32 PCM samples (-1..1) from `decodeToPcm()`
+ * @param sampleRate - Source sample rate of the PCM data (Hz)
+ * @param targetRate - Target MP3 sample rate (Hz), typically 44100
+ * @param bitrate - MP3 encoding bitrate (kbps), typically 64
+ * @returns MP3 file as a Uint8Array
  */
 export async function encodeToMp3(
   pcmData: Float32Array,

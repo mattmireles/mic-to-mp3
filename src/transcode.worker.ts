@@ -26,6 +26,7 @@ export {};
 import { downsample, floatTo16BitPCM } from "./audio-utils";
 import { loadLameJs } from "./load-lamejs";
 
+/** Inbound message shape from `encodeToMp3()` in `./encode-worker.ts`. */
 interface TranscodeMessage {
   pcmData: Float32Array;
   sampleRate: number;

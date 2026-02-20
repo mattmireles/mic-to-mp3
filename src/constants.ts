@@ -1,7 +1,11 @@
 /**
  * Default configuration values for the voice recorder.
  *
- * These can all be overridden via VoiceRecorderOptions.
+ * Every value here can be overridden by the consumer via `VoiceRecorderOptions`
+ * (defined in `./types.ts`). These defaults are used by `useVoiceRecorder()`
+ * in `./use-voice-recorder.ts` when the consumer doesn't specify a value.
+ *
+ * Re-exported from `./index.ts` so consumers can reference them directly.
  *
  * @module web-voice-recorder-to-mp3/constants
  */

@@ -9,9 +9,25 @@
  * Returns the duration from the decoded AudioBuffer (rounded to whole
  * seconds) rather than relying on wall-clock timing.
  *
+ * Called by:
+ * - `processRecording()` in `./use-voice-recorder.ts` after MediaRecorder stops
+ *
+ * The output feeds into:
+ * - `encodeToMp3()` in `./encode-worker.ts` for PCM → MP3 transcoding
+ *
  * @module web-voice-recorder-to-mp3/decode-pcm
  */
 
+/**
+ * Decode an audio Blob to mono Float32 PCM at the target sample rate.
+ *
+ * Creates a temporary AudioContext pinned to `targetSampleRate`, decodes the
+ * blob, mixes stereo to mono if needed, and closes the context.
+ *
+ * @param blob - Audio blob from MediaRecorder (webm, mp4, etc.)
+ * @param targetSampleRate - Desired output sample rate in Hz (e.g. 44100)
+ * @returns Object with `channelData` (mono Float32Array), `sampleRate`, and `durationSec`
+ */
 export async function decodeToPcm(
   blob: Blob,
   targetSampleRate: number

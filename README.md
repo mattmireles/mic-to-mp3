@@ -1,6 +1,6 @@
-# Mic-to-Mp3
+# 🎙️🤖 Mic-to-Mp3
 
-Record microphone audio in the browser and receive MP3 bytes you can upload to LLM pipelines.
+Record microphone audio in the browser and receive MP3 bytes you can upload to an LLM.
 
 ```txt
 getUserMedia -> MediaRecorder -> AudioContext.decodeAudioData -> lamejs (Web Worker) -> Uint8Array
