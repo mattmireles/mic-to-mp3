@@ -15,7 +15,7 @@
  * The output feeds into:
  * - `encodeToMp3()` in `./encode-worker.ts` for PCM → MP3 transcoding
  *
- * @module web-voice-recorder-to-mp3/decode-pcm
+ * @module mic-to-mp3/decode-pcm
  */
 
 /**

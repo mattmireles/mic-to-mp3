@@ -15,7 +15,7 @@
  * - `downsample()` and `floatTo16BitPCM()` from `./audio-utils.ts` — PCM conversion
  * - `loadLameJs()` from `./load-lamejs.ts` — dynamic import of the MP3 encoder
  *
- * @module web-voice-recorder-to-mp3/encode-main-thread
+ * @module mic-to-mp3/encode-main-thread
  */
 
 import { downsample, floatTo16BitPCM } from "./audio-utils";

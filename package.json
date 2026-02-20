@@ -1,5 +1,5 @@
 {
-  "name": "web-voice-recorder-to-mp3",
+  "name": "mic-to-mp3",
   "version": "0.1.0",
   "description": "Record audio in the browser → transcode to MP3 off the main thread → get bytes. React hook included.",
   "license": "MIT",

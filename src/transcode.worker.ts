@@ -20,7 +20,7 @@ export {};
  * Out: { mp3Data: Uint8Array } (transferred back, zero-copy)
  * Err: { error: string }
  *
- * @module web-voice-recorder-to-mp3/transcode.worker
+ * @module mic-to-mp3/transcode.worker
  */
 
 import { downsample, floatTo16BitPCM } from "./audio-utils";

@@ -1,6 +1,8 @@
 # 🎙️🤖 Mic-to-Mp3
 
-Record microphone audio in the browser and receive MP3 bytes you can upload to an LLM.
+Record microphone audio in the browser and get MP3 bytes — no server-side transcoding required.
+
+All encoding happens in the user's browser via a Web Worker. You send the finished MP3 straight to your API. No FFmpeg server, no transcoding lambda, no audio pipeline to maintain.
 
 ```txt
 getUserMedia -> MediaRecorder -> AudioContext.decodeAudioData -> lamejs (Web Worker) -> Uint8Array
@@ -8,17 +10,19 @@ getUserMedia -> MediaRecorder -> AudioContext.decodeAudioData -> lamejs (Web Wor
 
 ## Why this exists
 
-Most browser recording flows stop at a `MediaRecorder` blob (`audio/webm`), a format that your LLM doesn't handle.
+Most browser recording flows stop at a `MediaRecorder` blob (`audio/webm`). To get MP3, the typical path is uploading raw audio to a server that runs FFmpeg or a cloud transcoding service. That means standing up infrastructure, paying for compute, and handling failure modes for something that the browser can do locally.
 
-This library does one thing:
+This library eliminates the server from the equation:
 
 - Capture mic audio in React
-- Transcode to mono MP3 in the client
-- Return `Uint8Array` bytes and metadata
+- Transcode to mono MP3 entirely in the browser (Web Worker, no UI jank)
+- Return `Uint8Array` bytes ready to POST to your LLM or API
+
+No transcoding server. No cloud function. No extra infra to deploy, scale, or pay for.
 
 It keeps the architecture intentionally simple:
 
-- Small dependency surface (`lamejs` only)
+- Small dependency surface (`lamejs` only — no native binaries, no WASM blobs)
 - Worker-first encoding to avoid UI freezes
 - Main-thread fallback if workers are blocked
 - Clean hook API with explicit error states
@@ -40,7 +44,7 @@ For this package specifically:
 ## Install
 
 ```bash
-npm install web-voice-recorder-to-mp3
+npm install mic-to-mp3
 ```
 
 Peer requirement:
@@ -50,7 +54,7 @@ Peer requirement:
 ## Quick start
 
 ```tsx
-import { useVoiceRecorder } from "web-voice-recorder-to-mp3";
+import { useVoiceRecorder } from "mic-to-mp3";
 
 export function VoiceRecorder() {
   const recorder = useVoiceRecorder({
@@ -89,7 +93,7 @@ export function VoiceRecorder() {
 ## LLM upload example
 
 ```tsx
-import { useVoiceRecorder } from "web-voice-recorder-to-mp3";
+import { useVoiceRecorder } from "mic-to-mp3";
 
 export function UploadToLLM() {
   const recorder = useVoiceRecorder({
@@ -231,21 +235,31 @@ Common user-facing errors:
 
 ## Privacy and security
 
-- Audio is processed locally in the user browser
+- All transcoding happens locally in the user's browser — audio never touches your servers for processing
 - No network call is made by this library
 - Data leaves the browser only if your `onRecordingComplete` callback sends it
 
 ## Comparison with other approaches
 
-`MediaRecorder` blob only:
+Server-side transcoding (FFmpeg on your backend, AWS MediaConvert, etc.):
 
-- Smaller implementation effort
-- But you get browser-dependent formats instead of deterministic MP3 bytes
+- The standard approach — upload raw audio, transcode on the server, return MP3
+- Requires backend infrastructure: a transcoding service, queue, storage, and error handling
+- Adds latency (upload raw blob, wait for server, download result)
+- Scales with compute cost per recording
+- This library eliminates that entire layer — the browser does the work and your server receives finished MP3 bytes
 
-FFmpeg.wasm:
+`MediaRecorder` blob only (no transcoding):
 
-- Extremely flexible
-- But larger payload and higher CPU/memory overhead for simple voice notes
+- Simplest implementation — just grab the blob and upload it
+- But you get `audio/webm` or `audio/ogg` depending on browser, not MP3
+- Your backend or LLM still has to deal with format conversion somewhere
+
+FFmpeg.wasm (client-side):
+
+- Extremely flexible — can do anything FFmpeg can
+- But ~3MB+ WASM payload and higher CPU/memory overhead for simple voice notes
+- Overkill when all you need is mic-to-MP3
 
 WebCodecs-first stacks:
 

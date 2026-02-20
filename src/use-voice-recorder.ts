@@ -36,7 +36,7 @@
  * - `audioContextRef`: null → AudioContext (analyser start) → null (analyser stop)
  * - `animFrameRef`: 0 → requestAnimationFrame ID (during recording) → 0 (on stop)
  *
- * @module web-voice-recorder-to-mp3/use-voice-recorder
+ * @module mic-to-mp3/use-voice-recorder
  */
 
 import { useState, useRef, useCallback, useEffect } from "react";

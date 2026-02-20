@@ -16,7 +16,7 @@
  * - Out: `{ pcmData, sampleRate, targetRate, bitrate }` (Float32Array transferred)
  * - In:  `{ mp3Data: Uint8Array }` on success, `{ error: string }` on failure
  *
- * @module web-voice-recorder-to-mp3/encode-worker
+ * @module mic-to-mp3/encode-worker
  */
 
 import { encodeOnMainThread } from "./encode-main-thread";
@@ -44,7 +44,7 @@ export async function encodeToMp3(
   try {
     worker = new Worker(new URL("./transcode.worker.js", import.meta.url));
   } catch (constructErr) {
-    console.warn("[voice-recorder] Worker creation failed, falling back to main thread:", constructErr);
+    console.warn("[mic-to-mp3] Worker creation failed, falling back to main thread:", constructErr);
     return encodeOnMainThread(pcmData, sampleRate, targetRate, bitrate);
   }
 
@@ -65,7 +65,7 @@ export async function encodeToMp3(
 
     const fallbackToMainThread = async (reason: unknown) => {
       console.warn(
-        "[voice-recorder] Worker encoding failed, falling back to main thread:",
+        "[mic-to-mp3] Worker encoding failed, falling back to main thread:",
         reason
       );
       try {

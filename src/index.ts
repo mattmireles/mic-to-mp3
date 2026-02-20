@@ -1,5 +1,5 @@
 /**
- * web-voice-recorder-to-mp3
+ * mic-to-mp3
  *
  * Record audio in the browser, transcode to MP3 off the main thread, get bytes.
  *
@@ -7,7 +7,7 @@
  *
  * @example
  * ```tsx
- * import { useVoiceRecorder } from "web-voice-recorder-to-mp3";
+ * import { useVoiceRecorder } from "mic-to-mp3";
  *
  * function VoiceButton() {
  *   const recorder = useVoiceRecorder({
@@ -25,7 +25,7 @@
  * }
  * ```
  *
- * @module web-voice-recorder-to-mp3
+ * @module mic-to-mp3
  */
 
 export { useVoiceRecorder } from "./use-voice-recorder";

@@ -8,7 +8,7 @@
  * Called by:
  * - `toggleRecording()` in `./use-voice-recorder.ts` when starting a new recording
  *
- * @module web-voice-recorder-to-mp3/recorder-mime
+ * @module mic-to-mp3/recorder-mime
  */
 
 /**

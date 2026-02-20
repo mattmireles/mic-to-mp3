@@ -7,7 +7,7 @@
  *
  * Re-exported from `./index.ts` so consumers can reference them directly.
  *
- * @module web-voice-recorder-to-mp3/constants
+ * @module mic-to-mp3/constants
  */
 
 export const DEFAULTS = {

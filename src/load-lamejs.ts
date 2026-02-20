@@ -13,7 +13,7 @@
  * - `./transcode.worker.ts` — Web Worker encoding path
  * - `./encode-main-thread.ts` — main-thread fallback encoding path
  *
- * @module web-voice-recorder-to-mp3/load-lamejs
+ * @module mic-to-mp3/load-lamejs
  */
 
 /**
