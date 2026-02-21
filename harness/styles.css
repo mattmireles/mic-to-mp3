@@ -1,0 +1,258 @@
+:root {
+  --bg: #f3f5f9;
+  --panel: #ffffff;
+  --line: #d3d8e2;
+  --text: #17223a;
+  --muted: #5a647a;
+  --accent: #005cc8;
+  --danger: #a11c1c;
+  --success: #1a7f37;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "IBM Plex Sans", "Avenir Next", "Segoe UI", sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(circle at top right, #dbe8ff 0%, transparent 42%),
+    radial-gradient(circle at bottom left, #d8f4ea 0%, transparent 40%),
+    var(--bg);
+}
+
+.page-header {
+  padding: 24px 20px 8px;
+}
+
+.page-header h1 {
+  margin: 0;
+  font-size: 1.6rem;
+  line-height: 1.25;
+}
+
+.page-header p {
+  margin: 8px 0 0;
+  color: var(--muted);
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  padding: 12px 20px 24px;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 12px 30px rgba(23, 34, 58, 0.06);
+}
+
+.panel-wide {
+  grid-column: 1 / -1;
+}
+
+.panel h2 {
+  margin-top: 0;
+  margin-bottom: 12px;
+}
+
+.panel h3 {
+  margin-bottom: 8px;
+}
+
+.panel-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+button,
+#download-link {
+  border: 1px solid var(--line);
+  background: #f6f8fc;
+  color: var(--text);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+button:hover,
+#download-link:hover {
+  border-color: #a6b3cc;
+  background: #edf2fb;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+#toggle-recording {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.status-item {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px;
+}
+
+.status-item .label {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.status-item .value {
+  display: block;
+  margin-top: 3px;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.error-text {
+  min-height: 20px;
+  margin: 10px 0;
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.waveform {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 58px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #f8faff;
+}
+
+.wave-bar {
+  width: 5px;
+  min-height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #2f9f6d, #1177d1);
+  transform-origin: bottom;
+  transition: height 80ms linear;
+}
+
+.result-block {
+  margin-top: 14px;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.result-block p {
+  margin-top: 0;
+}
+
+audio {
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid var(--line);
+}
+
+th,
+td {
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  padding: 8px;
+  vertical-align: top;
+}
+
+th {
+  background: #f7f9fd;
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.checklist {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.check-row label {
+  cursor: pointer;
+}
+
+textarea {
+  width: 100%;
+  padding: 8px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  resize: vertical;
+  font: inherit;
+}
+
+.badge {
+  display: inline-block;
+  font-size: 0.75rem;
+  border-radius: 999px;
+  padding: 2px 8px;
+  color: #fff;
+  font-weight: 700;
+}
+
+.badge.ok {
+  background: var(--success);
+}
+
+.badge.no {
+  background: var(--danger);
+}
+
+@media (min-width: 980px) {
+  .layout {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .panel-wide {
+    grid-column: span 2;
+  }
+
+  .status-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}

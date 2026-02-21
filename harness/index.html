@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>mic-to-mp3 Browser Compatibility Harness</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="page-header">
+      <h1>mic-to-mp3 Browser Compatibility Harness</h1>
+      <p>
+        Use this page to verify recording, incremental encoding, and fallback behavior across real browsers.
+      </p>
+    </header>
+
+    <main class="layout">
+      <section class="panel">
+        <h2>Run Test</h2>
+
+        <div class="actions-row">
+          <button id="toggle-recording" type="button">Start recording</button>
+          <button id="clear-error" type="button">Clear error</button>
+        </div>
+
+        <div class="status-grid">
+          <div class="status-item">
+            <span class="label">Recording</span>
+            <span id="status-recording" class="value">No</span>
+          </div>
+          <div class="status-item">
+            <span class="label">Processing</span>
+            <span id="status-processing" class="value">No</span>
+          </div>
+          <div class="status-item">
+            <span class="label">Elapsed</span>
+            <span id="status-elapsed" class="value">0s</span>
+          </div>
+          <div class="status-item">
+            <span class="label">Sample rate target</span>
+            <span id="status-target-rate" class="value">-</span>
+          </div>
+        </div>
+
+        <p id="status-error" class="error-text" role="status" aria-live="polite"></p>
+
+        <div id="waveform" class="waveform" aria-label="Live microphone level"></div>
+
+        <div class="result-block">
+          <h3>Last Result</h3>
+          <p id="result-summary">No recording completed yet.</p>
+          <audio id="playback" controls hidden></audio>
+          <a id="download-link" hidden download="voice-note.mp3">Download MP3</a>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Environment Checks</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Capability</th>
+              <th>Status</th>
+              <th>Details</th>
+            </tr>
+          </thead>
+          <tbody id="capability-rows"></tbody>
+        </table>
+
+        <h3>Manual Checklist</h3>
+        <div id="manual-checklist" class="checklist"></div>
+
+        <label for="notes">Notes</label>
+        <textarea id="notes" rows="4" placeholder="Add browser-specific observations"></textarea>
+      </section>
+
+      <section class="panel panel-wide">
+        <div class="panel-header-row">
+          <h2>Run History</h2>
+          <div class="actions-row">
+            <button id="export-json" type="button">Export JSON</button>
+            <button id="clear-runs" type="button">Clear runs</button>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Duration</th>
+              <th>Size</th>
+              <th>Stop -> done</th>
+              <th>Processing</th>
+              <th>Path</th>
+              <th>Error</th>
+            </tr>
+          </thead>
+          <tbody id="run-rows"></tbody>
+        </table>
+      </section>
+    </main>
+
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>

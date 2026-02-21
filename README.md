@@ -1,11 +1,12 @@
 # 🎙️🤖 Mic-to-Mp3
 
-Record microphone audio in the browser and get MP3 bytes — no server-side transcoding required.
+Record microphone audio in the browser and get MP3 bytes with no server-side transcoding.
 
-All encoding happens in the user's browser via a Web Worker. You send the finished MP3 straight to your API. No FFmpeg server, no transcoding lambda, no audio pipeline to maintain.
+Encoding happens in the user's browser (worker-first). You send finished MP3 bytes straight to your API. No FFmpeg server, no transcoding lambda, no media queue.
 
 ```txt
-getUserMedia -> MediaRecorder -> AudioContext.decodeAudioData -> lamejs (Web Worker) -> Uint8Array
+Primary path: getUserMedia -> Web Audio PCM capture -> lamejs (incremental in Worker) -> flush -> Uint8Array
+Fallback path: getUserMedia -> MediaRecorder -> decodeAudioData -> lamejs -> Uint8Array
 ```
 
 ## Why this exists
@@ -14,8 +15,8 @@ Most browser recording flows stop at a `MediaRecorder` blob (`audio/webm`). To g
 
 This library eliminates the server from the equation:
 
-- Capture mic audio in React
-- Transcode to mono MP3 entirely in the browser (Web Worker, no UI jank)
+- Capture mic audio in browser JavaScript (framework-agnostic core + React hook)
+- Transcode to mono MP3 entirely in the browser (worker-first, incremental when supported)
 - Return `Uint8Array` bytes ready to POST to your LLM or API
 
 No transcoding server. No cloud function. No extra infra to deploy, scale, or pay for.
@@ -23,9 +24,9 @@ No transcoding server. No cloud function. No extra infra to deploy, scale, or pa
 It keeps the architecture intentionally simple:
 
 - Small dependency surface (`lamejs` only — no native binaries, no WASM blobs)
-- Worker-first encoding to avoid UI freezes
-- Main-thread fallback if workers are blocked
-- Clean hook API with explicit error states
+- Worker-first encoding with main-thread fallback
+- Live incremental encoding plus robust MediaRecorder/decode fallback
+- Framework-agnostic core controller and thin React adapter
 
 ## Design principles
 
@@ -47,14 +48,15 @@ For this package specifically:
 npm install mic-to-mp3
 ```
 
-Peer requirement:
+React is optional. Use:
 
-- `react >= 18`
+- `mic-to-mp3/core` for vanilla JS or non-React frameworks
+- `mic-to-mp3/react` for hook-focused usage
 
-## Quick start
+## Quick start (React)
 
 ```tsx
-import { useVoiceRecorder } from "mic-to-mp3";
+import { useVoiceRecorder } from "mic-to-mp3/react";
 
 export function VoiceRecorder() {
   const recorder = useVoiceRecorder({
@@ -90,10 +92,31 @@ export function VoiceRecorder() {
 }
 ```
 
-## LLM upload example
+## Quick start (vanilla JS)
+
+```ts
+import { createVoiceRecorder } from "mic-to-mp3/core";
+
+const recorder = createVoiceRecorder({
+  onRecordingComplete: async (mp3Data, metadata) => {
+    console.log("duration:", metadata.durationSec);
+    console.log("bytes:", metadata.sizeBytes);
+    await fetch("/api/transcribe", {
+      method: "POST",
+      body: new File([mp3Data], "voice.mp3", { type: "audio/mpeg" }),
+    });
+  },
+});
+
+document.getElementById("toggle")?.addEventListener("click", () => {
+  void recorder.toggleRecording();
+});
+```
+
+## LLM upload example (React)
 
 ```tsx
-import { useVoiceRecorder } from "mic-to-mp3";
+import { useVoiceRecorder } from "mic-to-mp3/react";
 
 export function UploadToLLM() {
   const recorder = useVoiceRecorder({
@@ -119,17 +142,36 @@ export function UploadToLLM() {
 
 ## API
 
+### `createVoiceRecorder(options): VoiceRecorderController`
+
+Framework-agnostic controller API (import from `mic-to-mp3/core`).
+
+Controller methods:
+
+| Method | Type | Description |
+| --- | --- | --- |
+| `start` | `() => Promise<void>` | Start recording |
+| `stop` | `() => void` | Stop recording and finalize |
+| `toggleRecording` | `() => Promise<void>` | Convenience start/stop toggle |
+| `clearError` | `() => void` | Clear current error |
+| `destroy` | `() => void` | Release resources (stream, timers, context, worker) |
+| `getState` | `() => VoiceRecorderState` | Read current state snapshot |
+| `subscribe` | `(listener) => () => void` | Subscribe to state changes |
+| `updateOptions` | `(options) => void` | Update callbacks/limits without recreating |
+
 ### `useVoiceRecorder(options): VoiceRecorderHook`
+
+React adapter over `createVoiceRecorder()` (import from `mic-to-mp3/react`).
 
 #### Options
 
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
-| `onRecordingComplete` | `(mp3Data: Uint8Array, metadata: RecordingMetadata) => void` | required | Called after decode and MP3 encode finish |
+| `onRecordingComplete` | `(mp3Data: Uint8Array, metadata: RecordingMetadata) => void` | required | Called after MP3 finalization |
 | `maxDuration` | `number` | `600` | Auto-stop limit in seconds |
 | `maxSizeBytes` | `number` | `25 * 1024 * 1024` | Fails if encoded MP3 exceeds this size |
 | `bitrate` | `number` | `64` | MP3 bitrate in kbps |
-| `sampleRate` | `number` | `44100` | Decode target sample rate in Hz |
+| `sampleRate` | `number` | `44100` | Target MP3 sample rate in Hz |
 
 #### Return value (`VoiceRecorderHook`)
 
@@ -178,18 +220,25 @@ function Waveform({ levels }: { levels: number[] }) {
 ## Architecture
 
 1. Request mic access using `navigator.mediaDevices.getUserMedia({ audio: true })`
-2. Record chunks with `MediaRecorder` (prefers `audio/webm;codecs=opus`, falls back as needed)
-3. Decode to PCM with `AudioContext.decodeAudioData()`
-4. Encode PCM to MP3 with `lamejs` in a dedicated worker
-5. Return `Uint8Array` bytes via `onRecordingComplete`
+2. Start live Web Audio PCM capture (ScriptProcessor path) and stream chunks to a worker-backed incremental MP3 session
+3. In parallel, capture `MediaRecorder` chunks as a compatibility fallback
+4. On stop, flush incremental encoder for immediate MP3 completion when live path is active
+5. If live path is unavailable or fails, fallback to `decodeAudioData()` + one-shot MP3 encoding
+6. Return `Uint8Array` bytes via `onRecordingComplete`
 
-If worker creation fails (CSP, unsupported environment, bundler mismatch), the library automatically falls back to main-thread encoding.
+Fallback layers:
+
+- Worker unavailable -> main-thread incremental encoder
+- Live PCM capture unavailable -> MediaRecorder + decode fallback
+- MediaRecorder unavailable -> live PCM path only (if supported)
 
 ## Browser and runtime requirements
 
 - Secure context for `getUserMedia` (HTTPS or localhost)
-- Browser support for `MediaRecorder`, `AudioContext`, and `Web Worker`
-- React 18+
+- Browser support for `AudioContext` and microphone permissions
+- `MediaRecorder` improves fallback reliability but is not strictly required
+- `Web Worker` improves responsiveness but is not strictly required
+- React 18+ only when using the hook API
 
 ## Bundler requirements
 
@@ -211,11 +260,12 @@ Recommended defaults for voice workflows:
 
 Operational notes:
 
-- Encoding is batch-style after stop, not streaming during recording
+- Live path incrementally encodes while recording when Web Audio PCM capture is available
+- Fallback path is batch decode + encode after stop
 - MP3 output is mono
 - When fallback runs on main thread, UI can stutter during encoding
-- The hook blocks rapid stop/start races to protect data integrity
-- Mic resources are released on stop and unmount
+- Start/stop races are guarded to protect data integrity
+- Mic resources are released on stop and destroy/unmount
 
 ## Error handling
 
@@ -228,10 +278,10 @@ Common user-facing errors:
 
 ## Limitations
 
-- React hook API only (no vanilla JS wrapper yet)
 - Browser-only package (not for Node.js runtime)
 - No container muxing features (MP4/WebM output is out of scope)
 - No advanced DSP pipeline (noise suppression, AGC, VAD) built in
+- Browser media APIs still vary across platforms; test critical UX on your target devices
 
 ## Privacy and security
 
@@ -274,6 +324,8 @@ Scripts:
 - `npm run typecheck`
 - `npm run test`
 - `npm run build`
+- `npm run harness`
+- `npm run harness:serve`
 
 Publish safety gate:
 
@@ -284,6 +336,37 @@ Release commands:
 ```bash
 npm publish --dry-run
 npm publish
+```
+
+## Browser compatibility harness
+
+Run the local harness server:
+
+```bash
+npm run harness
+```
+
+Open [http://localhost:4173/harness/](http://localhost:4173/harness/) in each target browser.
+
+The harness provides:
+
+- Environment capability checks (`getUserMedia`, `AudioContext`, `MediaRecorder`, `Worker`, MIME support)
+- Live recording and MP3 generation with the same `createVoiceRecorder()` pipeline used in production
+- Run history with timing metrics (`stop -> done`, processing duration, file size)
+- JSON export for sharing test results
+
+Recommended validation matrix:
+
+- Chrome (latest) on macOS or Windows
+- Firefox (latest) on macOS or Windows
+- Safari (latest) on macOS
+- iOS Safari (current iOS release)
+- Android Chrome (current Android release)
+
+If `dist/` is already built, you can skip rebuild and just serve:
+
+```bash
+npm run harness:serve
 ```
 
 ## Contributing

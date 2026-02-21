@@ -1,10 +1,10 @@
 /**
  * Decode browser-recorded audio blob into mono PCM channel data.
  *
- * Pins AudioContext to the target sample rate so the browser's high-quality
- * internal resampler handles rate conversion (e.g. 48000 Hz capture on mobile)
- * before we receive the PCM data. This eliminates the need for a second
- * linear-interpolation downsample pass in the encoder.
+ * Pins AudioContext to the target sample rate so the browser's internal
+ * resampler handles most rate conversion (e.g. 48000 Hz capture on mobile)
+ * before we receive PCM data. The encoder still keeps a lightweight
+ * downsample safety net for browsers that ignore the sample-rate hint.
  *
  * Returns the duration from the decoded AudioBuffer (rounded to whole
  * seconds) rather than relying on wall-clock timing.

@@ -1,37 +1,176 @@
 /**
- * Main-thread MP3 encoding fallback.
+ * Main-thread MP3 encoding implementation.
  *
- * Used when Web Worker creation fails (e.g. CSP restrictions, unsupported
- * environment, or bundler incompatibility with worker URLs).
- *
- * Same encoding logic as `./transcode.worker.ts`, but runs on the main thread.
- * This blocks the UI during encoding — the worker path in `./encode-worker.ts`
- * is always attempted first.
+ * This module provides two APIs:
+ * - `createMainThreadEncodeSession()` for incremental chunk-by-chunk encoding
+ * - `encodeOnMainThread()` for one-shot encoding (legacy compatibility)
  *
  * Called by:
- * - `encodeToMp3()` in `./encode-worker.ts` when worker creation or execution fails
+ * - `createMp3EncodeSession()` in `./encode-worker.ts` as worker fallback
+ * - `encodeToMp3()` in `./encode-worker.ts` for one-shot fallback
  *
  * Calls:
- * - `downsample()` and `floatTo16BitPCM()` from `./audio-utils.ts` — PCM conversion
- * - `loadLameJs()` from `./load-lamejs.ts` — dynamic import of the MP3 encoder
+ * - `downsample()` and `floatTo16BitPCM()` from `./audio-utils.ts`
+ * - `loadLameJs()` from `./load-lamejs.ts`
  *
  * @module mic-to-mp3/encode-main-thread
  */
 
 import { downsample, floatTo16BitPCM } from "./audio-utils";
-import { loadLameJs } from "./load-lamejs";
+import { loadLameJs, type LameJsModule } from "./load-lamejs";
+
+/** lamejs processes 1152 PCM samples per MP3 frame. */
+const LAME_FRAME_SIZE = 1152;
 
 /**
- * Encode PCM Float32 samples to MP3 on the main thread.
+ * Incremental MP3 encoder session contract.
  *
- * Mirrors the encoding logic in `./transcode.worker.ts`. Blocks the UI
- * during encoding but produces identical MP3 output.
+ * Implemented by:
+ * - `MainThreadEncodeSession` in this module
+ * - `WorkerEncodeSession` in `./encode-worker.ts`
+ */
+export interface IncrementalMp3EncoderSession {
+  /** Queue a PCM chunk for encoding. */
+  appendPcm: (pcmData: Float32Array) => void;
+  /** Flush pending chunks and finalize the MP3 output. */
+  flush: () => Promise<Uint8Array>;
+  /** Release session resources. Safe to call multiple times. */
+  close: () => void;
+}
+
+/**
+ * Main-thread incremental encoder.
  *
- * @param pcmData - Mono Float32 PCM samples (-1..1)
- * @param sampleRate - Source sample rate of the PCM data (Hz)
- * @param targetRate - Target MP3 sample rate (Hz)
- * @param bitrate - MP3 encoding bitrate (kbps)
- * @returns MP3 file as a Uint8Array
+ * Uses an internal promise chain (`pending`) so append calls preserve ordering.
+ * This mirrors worker message-order semantics without introducing async races.
+ */
+class MainThreadEncodeSession implements IncrementalMp3EncoderSession {
+  private encoder: InstanceType<LameJsModule["Mp3Encoder"]> | null = null;
+  private readonly mp3Chunks: Int8Array[] = [];
+  private pending: Promise<void> = Promise.resolve();
+  private fatalError: Error | null = null;
+  private closed = false;
+  private readonly initPromise: Promise<void>;
+
+  constructor(
+    private readonly sourceRate: number,
+    private readonly targetRate: number,
+    private readonly bitrate: number
+  ) {
+    this.initPromise = this.initialize();
+  }
+
+  /** Load lamejs and create the Mp3Encoder instance. */
+  private async initialize(): Promise<void> {
+    const lamejs = await loadLameJs();
+    this.encoder = new lamejs.Mp3Encoder(1, this.targetRate, this.bitrate);
+  }
+
+  /** Await initialization so caller sees setup failures early. */
+  async ensureReady(): Promise<void> {
+    await this.initPromise;
+  }
+
+  appendPcm(pcmData: Float32Array): void {
+    if (this.closed || this.fatalError) return;
+
+    /**
+     * Copy chunk data immediately because callers often transfer/reuse buffers
+     * after append. Encoding always reads from this owned copy.
+     */
+    const chunkCopy = new Float32Array(pcmData.length);
+    chunkCopy.set(pcmData);
+
+    this.pending = this.pending
+      .then(async () => {
+        await this.initPromise;
+        if (!this.encoder) {
+          throw new Error("MP3 encoder is not initialized.");
+        }
+
+        const resampled = downsample(chunkCopy, this.sourceRate, this.targetRate);
+        const samples = floatTo16BitPCM(resampled);
+
+        for (let i = 0; i < samples.length; i += LAME_FRAME_SIZE) {
+          const frame = samples.subarray(i, i + LAME_FRAME_SIZE);
+          const mp3Chunk = this.encoder.encodeBuffer(frame);
+          if (mp3Chunk.length > 0) {
+            this.mp3Chunks.push(mp3Chunk);
+          }
+        }
+      })
+      .catch((error: unknown) => {
+        this.fatalError =
+          error instanceof Error ? error : new Error("Failed to encode PCM chunk.");
+      });
+  }
+
+  async flush(): Promise<Uint8Array> {
+    if (this.closed) {
+      throw new Error("Encoder session is already closed.");
+    }
+
+    await this.initPromise;
+    await this.pending;
+
+    if (this.fatalError) {
+      throw this.fatalError;
+    }
+
+    if (!this.encoder) {
+      throw new Error("MP3 encoder is not initialized.");
+    }
+
+    const finalChunk = this.encoder.flush();
+    if (finalChunk.length > 0) {
+      this.mp3Chunks.push(finalChunk);
+    }
+
+    const totalSize = this.mp3Chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+    const mp3Data = new Uint8Array(totalSize);
+
+    let offset = 0;
+    for (const chunk of this.mp3Chunks) {
+      mp3Data.set(
+        new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.byteLength),
+        offset
+      );
+      offset += chunk.length;
+    }
+
+    this.closed = true;
+    return mp3Data;
+  }
+
+  close(): void {
+    this.closed = true;
+    this.encoder = null;
+    this.mp3Chunks.length = 0;
+  }
+}
+
+/**
+ * Create a main-thread incremental MP3 session.
+ *
+ * @param sourceRate - Input PCM sample rate (Hz)
+ * @param targetRate - Output MP3 sample rate (Hz)
+ * @param bitrate - MP3 bitrate (kbps)
+ */
+export async function createMainThreadEncodeSession(
+  sourceRate: number,
+  targetRate: number,
+  bitrate: number
+): Promise<IncrementalMp3EncoderSession> {
+  const session = new MainThreadEncodeSession(sourceRate, targetRate, bitrate);
+  await session.ensureReady();
+  return session;
+}
+
+/**
+ * One-shot PCM -> MP3 encoding on the main thread.
+ *
+ * Maintains compatibility with existing callers while internally using the
+ * incremental session implementation.
  */
 export async function encodeOnMainThread(
   pcmData: Float32Array,
@@ -39,37 +178,11 @@ export async function encodeOnMainThread(
   targetRate: number,
   bitrate: number
 ): Promise<Uint8Array> {
-  const lamejs = await loadLameJs();
-  const resampled = downsample(pcmData, sampleRate, targetRate);
-  const samples = floatTo16BitPCM(resampled);
-
-  const encoder = new lamejs.Mp3Encoder(1, targetRate, bitrate);
-
-  /** lamejs processes 1152 samples at a time. */
-  const CHUNK_SIZE = 1152;
-  const mp3Chunks: Int8Array[] = [];
-
-  for (let i = 0; i < samples.length; i += CHUNK_SIZE) {
-    const chunk = samples.subarray(i, i + CHUNK_SIZE);
-    const mp3buf = encoder.encodeBuffer(chunk);
-    if (mp3buf.length > 0) mp3Chunks.push(mp3buf);
+  const session = await createMainThreadEncodeSession(sampleRate, targetRate, bitrate);
+  session.appendPcm(pcmData);
+  try {
+    return await session.flush();
+  } finally {
+    session.close();
   }
-
-  const finalBuf = encoder.flush();
-  if (finalBuf.length > 0) mp3Chunks.push(finalBuf);
-
-  /**
-   * Concatenate encoded chunks into a single contiguous Uint8Array.
-   * lamejs returns Int8Array chunks that may share an underlying ArrayBuffer,
-   * so we use (buffer, byteOffset, byteLength) to extract the correct slice.
-   */
-  const totalSize = mp3Chunks.reduce((sum, c) => sum + c.length, 0);
-  const mp3Data = new Uint8Array(totalSize);
-  let offset = 0;
-  for (const chunk of mp3Chunks) {
-    mp3Data.set(new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.byteLength), offset);
-    offset += chunk.length;
-  }
-
-  return mp3Data;
 }

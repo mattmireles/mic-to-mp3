@@ -13,7 +13,12 @@
 
 /**
  * Downsample audio data with linear interpolation.
- * No-ops if fromRate === toRate.
+ * No-ops if `fromRate === toRate`.
+ *
+ * Most recordings already arrive at the target rate because the decoder and
+ * live capture paths both request a pinned AudioContext sample rate. This
+ * function remains as a defensive safety net for browsers that ignore that
+ * hint and return device-native rates (commonly 48000 Hz).
  *
  * @param buffer - Source Float32 PCM samples
  * @param fromRate - Source sample rate (Hz)

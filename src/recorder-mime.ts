@@ -15,6 +15,13 @@
  * @returns The best supported MIME type string, or empty string if none detected
  */
 export function detectRecorderMimeType(): string {
+  if (
+    typeof MediaRecorder === "undefined" ||
+    typeof MediaRecorder.isTypeSupported !== "function"
+  ) {
+    return "";
+  }
+
   const candidates = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"];
   for (const type of candidates) {
     if (MediaRecorder.isTypeSupported(type)) return type;

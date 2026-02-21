@@ -1,7 +1,7 @@
 {
   "name": "mic-to-mp3",
   "version": "0.1.0",
-  "description": "Record audio in the browser → transcode to MP3 off the main thread → get bytes. React hook included.",
+  "description": "Record audio in the browser and get MP3 bytes with worker-first encoding. Includes framework-agnostic core and React hook.",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -18,6 +18,26 @@
         "default": "./dist/index.cjs"
       }
     },
+    "./core": {
+      "import": {
+        "types": "./dist/core.d.ts",
+        "default": "./dist/core.js"
+      },
+      "require": {
+        "types": "./dist/core.d.cts",
+        "default": "./dist/core.cjs"
+      }
+    },
+    "./react": {
+      "import": {
+        "types": "./dist/react.d.ts",
+        "default": "./dist/react.js"
+      },
+      "require": {
+        "types": "./dist/react.d.cts",
+        "default": "./dist/react.cjs"
+      }
+    },
     "./worker": "./dist/transcode.worker.js"
   },
   "files": [
@@ -29,6 +49,8 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
+    "harness": "npm run build && node scripts/serve-harness.mjs",
+    "harness:serve": "node scripts/serve-harness.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -36,6 +58,11 @@
   },
   "peerDependencies": {
     "react": ">=18.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
   },
   "dependencies": {
     "lamejs": "^1.2.1"
@@ -62,6 +89,7 @@
     "web-worker",
     "lamejs",
     "react",
+    "vanilla-js",
     "hook",
     "transcoding"
   ],

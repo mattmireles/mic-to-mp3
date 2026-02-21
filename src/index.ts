@@ -1,38 +1,24 @@
 /**
- * mic-to-mp3
+ * mic-to-mp3 root entrypoint.
  *
- * Record audio in the browser, transcode to MP3 off the main thread, get bytes.
+ * Backward-compatible root exports include the React hook plus the new
+ * framework-agnostic controller API.
  *
- * Pipeline: getUserMedia -> MediaRecorder -> AudioContext.decodeAudioData -> lamejs (Web Worker) -> Uint8Array
- *
- * @example
- * ```tsx
- * import { useVoiceRecorder } from "mic-to-mp3";
- *
- * function VoiceButton() {
- *   const recorder = useVoiceRecorder({
- *     onRecordingComplete: (mp3Data, metadata) => {
- *       const blob = new Blob([mp3Data], { type: "audio/mpeg" });
- *       // Upload blob, play it, store it — your call.
- *     },
- *   });
- *
- *   return (
- *     <button onClick={recorder.toggleRecording}>
- *       {recorder.isRecording ? "Stop" : "Record"}
- *     </button>
- *   );
- * }
- * ```
+ * For environment-specific imports:
+ * - `mic-to-mp3/core` (no React dependency)
+ * - `mic-to-mp3/react` (hook-focused)
  *
  * @module mic-to-mp3
  */
 
 export { useVoiceRecorder } from "./use-voice-recorder";
+export { createVoiceRecorder, VoiceRecorder } from "./voice-recorder-core";
 export { DEFAULTS } from "./constants";
 
 export type {
-  VoiceRecorderOptions,
-  VoiceRecorderHook,
   RecordingMetadata,
+  VoiceRecorderController,
+  VoiceRecorderHook,
+  VoiceRecorderOptions,
+  VoiceRecorderState,
 } from "./types";
